@@ -107,6 +107,7 @@ const isConsentGranted = require('isConsentGranted');
 const addConsentListener = require('addConsentListener');
 const injectScript = require('injectScript');
 const createQueue = require('createQueue');
+const makeInteger = require('makeInteger');
 const getType = require('getType');
 
 
@@ -117,7 +118,11 @@ let trackConversion = function() {
   _hrq_push(["se"]);
   _hrq_push(['setKey', data.id]);
   if (data.orderId) {
-    _hrq_push(['setOrderId', data.orderId]);
+    let orderId = makeInteger(data.orderId);
+    _hrq_push(['setOrderId', orderId > 0 ? orderId : data.orderId]);
+    if (orderId === 0) {
+      log("Heureka Conversion: order ID must be numeric, got", data.orderId);
+    }
   }
   
   let products = data.products || [];
@@ -128,6 +133,8 @@ let trackConversion = function() {
   for (let i = 0; i < products.length; i++) {
     _hrq_push(['addProduct', products[i].name, products[i].price, products[i].quantity]);
   }
+  
+  _hrq_push(['trackOrder']);
   
   let url = 'https://im9.cz/js/ext/1-roi-async.js';
   if (data.country === 'sk') {
@@ -156,6 +163,7 @@ if (isConsentGranted('ad_storage')) {
       trackConversion();
     }
   });
+  log("Heureka Conversion: consent listener was added", data);
   data.gtmOnSuccess();
 }
 
