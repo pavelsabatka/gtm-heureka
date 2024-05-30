@@ -2,7 +2,7 @@ homepage: "https://www.houseofrezac.com"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: 5d4af3334a73c642fb12dc17357bfa085524763c
+  - sha: 55e213bf5e8c592fd3a5671dad169f3b3c4a16bb
     changeNotes: Initial release
   
   # Older versions
