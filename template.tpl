@@ -115,8 +115,9 @@ const getType = require('getType');
 
 let trackConversion = function() {
   const _hrq_push = createQueue('_hrq');
-  _hrq_push(["se"]);
+ 
   _hrq_push(['setKey', data.id]);
+  
   if (data.orderId) {
     let orderId = makeInteger(data.orderId);
     _hrq_push(['setOrderId', orderId > 0 ? orderId : data.orderId]);
@@ -131,7 +132,12 @@ let trackConversion = function() {
     products = [];
   }
   for (let i = 0; i < products.length; i++) {
-    _hrq_push(['addProduct', products[i].name, products[i].price, products[i].quantity]);
+    _hrq_push(['addProduct', 
+               products[i].name,
+               ''+products[i].price,
+               ''+products[i].quantity,
+               ''+products[i].id
+    ]);
   }
   
   _hrq_push(['trackOrder']);
@@ -373,15 +379,44 @@ scenarios:
 
     runCode(mockData);
     assertApi('gtmOnSuccess').wasCalled();
+- name: Check data
+  code: |-
+    let passedData = {};
+    let i = 0;
+
+    mock('isConsentGranted', function(consent) {
+      return true;
+    });
+    mock('injectScript', function(url, fnSuccess, fnFailure) {
+      assertThat(url).isEqualTo('https://im9.cz/js/ext/1-roi-async.js');
+      fnSuccess();
+    });
+    mock('createQueue', function(name) {
+      assertThat(name).isEqualTo('_hrq');
+      return function(param) {
+        passedData[i] = param;
+        i++;
+      };
+    });
+
+    runCode(mockData);
+
+    assertThat(passedData[0]).isEqualTo(['setKey', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['setOrderId', 12345]);
+    assertThat(passedData[2]).isEqualTo(['addProduct', 'Okurka', '21', '1', '123']);
+    assertThat(passedData[3]).isEqualTo(['addProduct', 'Brambora', '3.5', '5', '456']);
+    assertThat(passedData[4]).isEqualTo(['trackOrder']);
 setup: |-
   let mockData = {
-    'id': 'ASDFGHJKL1234567890',
-    'orderId': 'O_12345',
+    'id': 'ABCDEFGH12345NOPQRS1111123456789',
+    'orderId': 12345,
     'products': [{
+      'id': 123,
       'name': 'Okurka',
       'price': 21.0,
       'quantity': 1
     }, {
+      'id': 456,
       'name': 'Brambora',
       'price': 3.5,
       'quantity': 5
