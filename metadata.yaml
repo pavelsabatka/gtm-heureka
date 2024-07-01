@@ -3,8 +3,9 @@ documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
   - sha: 53cd19714b279ca36f40ca512ec6609f0b15537d
-    changeNotes: Fix: adding product ID as param
+    changeNotes: Fix - adding product ID as param
   
+
   # Older versions
   - sha: 55e213bf5e8c592fd3a5671dad169f3b3c4a16bb
     changeNotes: Initial release
