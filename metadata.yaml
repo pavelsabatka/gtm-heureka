@@ -2,7 +2,7 @@ homepage: "https://www.sabatka.net/"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: 93d92537814d4c7a102ff63bb9df1e35f47f26df
+  - sha: 53cd19714b279ca36f40ca512ec6609f0b15537d
     changeNotes: Fix: adding product ID as param
   
   # Older versions
