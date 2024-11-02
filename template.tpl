@@ -34,40 +34,28 @@ ___TEMPLATE_PARAMETERS___
 
 [
   {
-    "type": "TEXT",
-    "name": "id",
-    "displayName": "Key",
+    "type": "SELECT",
+    "name": "code_type",
+    "displayName": "Code Type",
+    "macrosInSelect": false,
+    "selectItems": [
+      {
+        "value": "thank_you",
+        "displayValue": "Purchase"
+      },
+      {
+        "value": "product_detail",
+        "displayValue": "Item detail"
+      }
+    ],
     "simpleValueType": true,
-    "canBeEmptyString": false,
-    "alwaysInSummary": true,
-    "clearOnCopy": true,
-    "help": "Conversion code key from Heureka administration",
+    "alwaysInSummary": false,
+    "defaultValue": "purchase",
     "valueValidators": [
       {
         "type": "NON_EMPTY"
       }
     ]
-  },
-  {
-    "type": "SELECT",
-    "name": "orderId",
-    "displayName": "Order ID",
-    "macrosInSelect": true,
-    "selectItems": [],
-    "simpleValueType": true,
-    "alwaysInSummary": false,
-    "notSetText": "Not Set",
-    "help": "Unique ID of given order"
-  },
-  {
-    "type": "SELECT",
-    "name": "products",
-    "displayName": "Products",
-    "macrosInSelect": true,
-    "selectItems": [],
-    "simpleValueType": true,
-    "help": "Array of products. Each product object needs keys \"name\", \"quantity\", \"price\"",
-    "notSetText": "Not Set"
   },
   {
     "type": "SELECT",
@@ -96,6 +84,106 @@ ___TEMPLATE_PARAMETERS___
     "defaultValue": "cz",
     "alwaysInSummary": true,
     "help": "Country code, expected values are cz or sk"
+  },
+  {
+    "type": "TEXT",
+    "name": "id",
+    "displayName": "Key",
+    "simpleValueType": true,
+    "canBeEmptyString": false,
+    "alwaysInSummary": true,
+    "clearOnCopy": true,
+    "help": "Conversion code key from Heureka administration",
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ],
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ]
+  },
+  {
+    "type": "SELECT",
+    "name": "order_id",
+    "displayName": "Order ID",
+    "macrosInSelect": true,
+    "selectItems": [],
+    "simpleValueType": true,
+    "alwaysInSummary": false,
+    "notSetText": "Not Set",
+    "help": "Unique ID of given order",
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "order_revenue",
+    "displayName": "Order Revenue",
+    "simpleValueType": true,
+    "alwaysInSummary": false,
+    "clearOnCopy": false,
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ],
+    "help": "Revenue og given order; currency is set in separate field"
+  },
+  {
+    "type": "TEXT",
+    "name": "currency_code",
+    "displayName": "Currency Code",
+    "simpleValueType": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      },
+      {
+        "type": "STRING_LENGTH",
+        "args": [
+          3,
+          3
+        ]
+      }
+    ],
+    "help": "Currency code like CZK, EUR or USD",
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ],
+    "defaultValue": "CZK"
+  },
+  {
+    "type": "SELECT",
+    "name": "products",
+    "displayName": "Products",
+    "macrosInSelect": true,
+    "selectItems": [],
+    "simpleValueType": true,
+    "help": "Array of products. Each product object needs keys \"name\", \"quantity\", \"price\"",
+    "notSetText": "Not Set",
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ]
   }
 ]
 
@@ -103,75 +191,68 @@ ___TEMPLATE_PARAMETERS___
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
 const log = require('logToConsole');
-const isConsentGranted = require('isConsentGranted');
-const addConsentListener = require('addConsentListener');
+const createArgumentsQueue = require('createArgumentsQueue');
+const setInWindow = require('setInWindow');
 const injectScript = require('injectScript');
-const createQueue = require('createQueue');
-const makeInteger = require('makeInteger');
 const getType = require('getType');
 
 
 
 
-let trackConversion = function() {
-  const _hrq_push = createQueue('_hrq');
- 
-  _hrq_push(['setKey', data.id]);
-  
-  if (data.orderId) {
-    let orderId = makeInteger(data.orderId);
-    _hrq_push(['setOrderId', orderId > 0 ? orderId : data.orderId]);
-    if (orderId === 0) {
-      log("Heureka Conversion: order ID must be numeric, got", data.orderId);
+let add_data = () => {};
+let url = 'https://www.heureka.'+data.country+'/ocm/sdk.js?version=2&page='+data.code_type;
+
+
+if (data.code_type === 'thank_you') {
+  add_data = function() {
+    log('Heureka '+data.code_type+': adding data');
+	heureka('authenticate', data.id);
+    log(' - authenticate', data.id);
+    
+    if (data.order_id) {
+      heureka('set_order_id', data.order_id);
+      log(' - set_order_id', data.order_id);
     }
-  }
-  
-  let products = data.products || [];
-  if (getType(products) !== 'array') {
-    log("Heureka Conversion: passing non-array value", products);
-    products = [];
-  }
-  for (let i = 0; i < products.length; i++) {
-    _hrq_push(['addProduct', 
-               products[i].name,
-               ''+products[i].price,
-               ''+products[i].quantity,
-               ''+products[i].id
-    ]);
-  }
-  
-  _hrq_push(['trackOrder']);
-  
-  let url = 'https://im9.cz/js/ext/1-roi-async.js';
-  if (data.country === 'sk') {
-    url = 'https://im9.cz/sk/js/ext/2-roi-async.js';
-  }
-  const countryCode = (data.country === 'sk') ? 'sk/' : '';
-  injectScript(url, () => {
-    log("Heureka Conversion: SUCCESS", data);
-    data.gtmOnSuccess();
-  }, () => {
-    log("Heureka Conversion: script loading failed", data);
-    data.gtmOnFailure();
-  });
-};
-
-
-
-if (isConsentGranted('ad_storage')) {
-  trackConversion();
-} else {
-  let wasCalled = false;
-  addConsentListener('ad_storage', (consentType, granted) => {
-    if (wasCalled) return;
-    if (consentType === 'ad_storage' && granted) {
-      wasCalled = true;
-      trackConversion();
+	  
+    let products = data.products || [];
+    if (getType(products) !== 'array') {
+      log("Heureka Conversion: passing non-array value", products);
+      products = [];
     }
-  });
-  log("Heureka Conversion: consent listener was added", data);
-  data.gtmOnSuccess();
+    for (let i = 0; i < products.length; i++) {
+      let id = (products[i].id || products[i].item_id || '').toString();
+      let name = (products[i].name || products[i].item_name || '').toString();
+      let price = (products[i].price || '').toString();
+      let quantity = (products[i].quantity || '').toString();
+      heureka('add_product', id, name, price, quantity);
+      log(' - add_product', id, name, price, quantity);
+    }
+	  
+    if (data.order_revenue) {
+      heureka('set_total_vat', data.order_revenue);
+      log(' - set_total_vat', data.order_revenue);
+    }
+    if (data.currency_code) {
+      heureka('set_currency', data.currency_code);
+      log(' - set_currency', data.currency_code);
+    }
+    heureka('send', 'Order');
+    log(' - send order');
+  };
 }
+
+
+setInWindow('ROIDataObject', 'heureka', true);
+const heureka = createArgumentsQueue('heureka', 'heureka.q');
+setInWindow('heureka.c', data.country, true);
+injectScript(url, () => {
+  add_data();
+  log('Heureka '+data.code_type+': success', data);
+  data.gtmOnSuccess();
+}, () => {
+  log('Heureka '+data.code_type+': script loading failed', data);
+  data.gtmOnFailure();
+});
 
 
 ___WEB_PERMISSIONS___
@@ -212,64 +293,11 @@ ___WEB_PERMISSIONS___
             "listItem": [
               {
                 "type": 1,
-                "string": "https://im9.cz/js/ext/1-roi-async.js"
+                "string": "https://www.heureka.cz/ocm/sdk.js*"
               },
               {
                 "type": 1,
-                "string": "https://im9.cz/sk/js/ext/2-roi-async.js"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "clientAnnotations": {
-      "isEditedByUser": true
-    },
-    "isRequired": true
-  },
-  {
-    "instance": {
-      "key": {
-        "publicId": "access_consent",
-        "versionId": "1"
-      },
-      "param": [
-        {
-          "key": "consentTypes",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 3,
-                "mapKey": [
-                  {
-                    "type": 1,
-                    "string": "consentType"
-                  },
-                  {
-                    "type": 1,
-                    "string": "read"
-                  },
-                  {
-                    "type": 1,
-                    "string": "write"
-                  }
-                ],
-                "mapValue": [
-                  {
-                    "type": 1,
-                    "string": "ad_storage"
-                  },
-                  {
-                    "type": 8,
-                    "boolean": true
-                  },
-                  {
-                    "type": 8,
-                    "boolean": false
-                  }
-                ]
+                "string": "https://www.heureka.sk/ocm/sdk.js*"
               }
             ]
           }
@@ -316,7 +344,7 @@ ___WEB_PERMISSIONS___
                 "mapValue": [
                   {
                     "type": 1,
-                    "string": "_hrq"
+                    "string": "heureka"
                   },
                   {
                     "type": 8,
@@ -329,6 +357,123 @@ ___WEB_PERMISSIONS___
                   {
                     "type": 8,
                     "boolean": true
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "heureka.c"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "heureka.q"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "ROIDataObject"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
                   }
                 ]
               }
@@ -348,68 +493,51 @@ ___WEB_PERMISSIONS___
 ___TESTS___
 
 scenarios:
-- name: Has consent
+- name: Basic - Code was fired successfully
   code: |-
-    mock('isConsentGranted', function(consent) {
-      return true;
-    });
-    mock('injectScript', function(url, fnSuccess, fnFailure) {
-      assertThat(url).isEqualTo('https://im9.cz/js/ext/1-roi-async.js');
-      fnSuccess();
-    });
-
     runCode(mockData);
+    assertApi('injectScript').wasCalled();
     assertApi('gtmOnSuccess').wasCalled();
-- name: No consent -> adding consent listener
+- name: Basic - Constants were set
   code: |-
-    mock('isConsentGranted', function(consent) {
-      return false;
-    });
-
     runCode(mockData);
+    assertApi('setInWindow').wasCalledWith('ROIDataObject', 'heureka', true);
+    assertApi('setInWindow').wasCalledWith('heureka.c', 'cz', true);
+- name: Product detail page
+  code: |-
+    expected_url = 'https://www.heureka.cz/ocm/sdk.js?version=2&page=product_detail';
+    mockData = {
+      'code_type': 'product_detail',
+      'country': 'cz'
+    };
+    runCode(mockData);
+    assertApi('injectScript').wasCalled();
     assertApi('gtmOnSuccess').wasCalled();
-    assertApi('injectScript').wasNotCalled();
+- name: Purchase page
+  code: "let passedData = [];\nlet i = 0;\n\nmock('createArgumentsQueue', function(name,\
+    \ queue) {\n  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
+    \  \n  return function(command) {\n    passedData[i] = arguments;\n    i++;\n\
+    \  };\n});\n\nrunCode(mockData);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
+    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
+    \ 12345]);\nassertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka',\
+    \ '21', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '456', 'Brambora',\
+    \ '3.5', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat', 99.9]);\n\
+    assertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\nassertThat(passedData[6]).isEqualTo(['send',\
+    \ 'Order']);"
 - name: SK version
   code: |-
+    expected_url = 'https://www.heureka.sk/ocm/sdk.js?version=2&page=thank_you';
     mockData.country = 'sk';
-    mock('injectScript', function(url, fnSuccess, fnFailure) {
-      assertThat(url).isEqualTo('https://im9.cz/sk/js/ext/2-roi-async.js');
-      fnSuccess();
-    });
-
+    // Call runCode to run the template's code.
     runCode(mockData);
-    assertApi('gtmOnSuccess').wasCalled();
-- name: Check data
-  code: |-
-    let passedData = {};
-    let i = 0;
-
-    mock('isConsentGranted', function(consent) {
-      return true;
-    });
-    mock('injectScript', function(url, fnSuccess, fnFailure) {
-      assertThat(url).isEqualTo('https://im9.cz/js/ext/1-roi-async.js');
-      fnSuccess();
-    });
-    mock('createQueue', function(name) {
-      assertThat(name).isEqualTo('_hrq');
-      return function(param) {
-        passedData[i] = param;
-        i++;
-      };
-    });
-
-    runCode(mockData);
-
-    assertThat(passedData[0]).isEqualTo(['setKey', 'ABCDEFGH12345NOPQRS1111123456789']);
-    assertThat(passedData[1]).isEqualTo(['setOrderId', 12345]);
-    assertThat(passedData[2]).isEqualTo(['addProduct', 'Okurka', '21', '1', '123']);
-    assertThat(passedData[3]).isEqualTo(['addProduct', 'Brambora', '3.5', '5', '456']);
-    assertThat(passedData[4]).isEqualTo(['trackOrder']);
+    assertApi('setInWindow').wasCalledWith('heureka.c', 'sk', true);
 setup: |-
   let mockData = {
     'id': 'ABCDEFGH12345NOPQRS1111123456789',
-    'orderId': 12345,
+    'code_type': 'thank_you',
+    'order_id': 12345,
+    'order_revenue': 99.90,
+    'currency_code': 'CZK',
     'products': [{
       'id': 123,
       'name': 'Okurka',
@@ -423,6 +551,15 @@ setup: |-
     }],
     'country': 'cz'
   };
+
+  let script_load_success = true;
+  let expected_url = 'https://www.heureka.cz/ocm/sdk.js?version=2&page=thank_you';
+
+  mock('injectScript', function(url, onSuccess, onFailure) {
+    assertThat(url).isEqualTo(expected_url);
+    if (script_load_success) onSuccess();
+    else onFailure();
+  });
 
 
 ___NOTES___
