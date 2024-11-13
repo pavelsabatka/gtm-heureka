@@ -14,7 +14,7 @@ ___INFO___
     "ANALYTICS",
     "ADVERTISING"
   ],
-  "description": "Conversion code for Heureka CZ or SK\nhttps://sluzby.heureka.cz/napoveda/mereni-konverzi/",
+  "description": "Conversion code for Heureka CZ, SK and Arukereso.hu\nhttps://sluzby.heureka.cz/napoveda/mereni-konverzi/",
   "securityGroups": [],
   "id": "cvt_temp_public_id",
   "type": "TAG",
@@ -61,15 +61,19 @@ ___TEMPLATE_PARAMETERS___
     "type": "SELECT",
     "name": "country",
     "displayName": "Heureka Account Country",
-    "macrosInSelect": true,
+    "macrosInSelect": false,
     "selectItems": [
       {
         "value": "cz",
-        "displayValue": "cz"
+        "displayValue": "heureka.cz"
       },
       {
         "value": "sk",
-        "displayValue": "sk"
+        "displayValue": "heureka.sk"
+      },
+      {
+        "value": "hu",
+        "displayValue": "arukereso.hu"
       }
     ],
     "simpleValueType": true,
@@ -200,7 +204,9 @@ const getType = require('getType');
 
 
 let add_data = () => {};
-let url = 'https://www.heureka.'+data.country+'/ocm/sdk.js?version=2&page='+data.code_type;
+let domain = 'heureka';
+if (data.country == 'hu') domain = 'arukereso';
+const url = 'https://www.'+domain+'.'+data.country+'/ocm/sdk.js?version=2&page='+data.code_type;
 
 
 if (data.code_type === 'thank_you') {
@@ -531,6 +537,13 @@ scenarios:
     // Call runCode to run the template's code.
     runCode(mockData);
     assertApi('setInWindow').wasCalledWith('heureka.c', 'sk', true);
+- name: HU version
+  code: |-
+    expected_url = 'https://www.arukereso.hu/ocm/sdk.js?version=2&page=thank_you';
+    mockData.country = 'hu';
+    // Call runCode to run the template's code.
+    runCode(mockData);
+    assertApi('setInWindow').wasCalledWith('heureka.c', 'hu', true);
 setup: |-
   let mockData = {
     'id': 'ABCDEFGH12345NOPQRS1111123456789',
