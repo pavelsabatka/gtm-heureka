@@ -35,6 +35,31 @@ ___TEMPLATE_PARAMETERS___
 [
   {
     "type": "SELECT",
+    "name": "country",
+    "displayName": "Heureka Account Country",
+    "macrosInSelect": false,
+    "selectItems": [
+      {
+        "value": "cz",
+        "displayValue": "heureka.cz"
+      },
+      {
+        "value": "sk",
+        "displayValue": "heureka.sk"
+      },
+      {
+        "value": "hu",
+        "displayValue": "arukereso.hu"
+      }
+    ],
+    "simpleValueType": true,
+    "defaultValue": "cz",
+    "alwaysInSummary": true,
+    "help": "Country where you perform your campaigns - CZ, SK or HU",
+    "clearOnCopy": false
+  },
+  {
+    "type": "SELECT",
     "name": "code_type",
     "displayName": "Code Type",
     "macrosInSelect": false,
@@ -56,38 +81,6 @@ ___TEMPLATE_PARAMETERS___
         "type": "NON_EMPTY"
       }
     ]
-  },
-  {
-    "type": "SELECT",
-    "name": "country",
-    "displayName": "Heureka Account Country",
-    "macrosInSelect": false,
-    "selectItems": [
-      {
-        "value": "cz",
-        "displayValue": "heureka.cz"
-      },
-      {
-        "value": "sk",
-        "displayValue": "heureka.sk"
-      },
-      {
-        "value": "hu",
-        "displayValue": "arukereso.hu"
-      }
-    ],
-    "simpleValueType": true,
-    "valueValidators": [
-      {
-        "type": "REGEX",
-        "args": [
-          "^(cz|sk)$"
-        ]
-      }
-    ],
-    "defaultValue": "cz",
-    "alwaysInSummary": true,
-    "help": "Country code, expected values are cz or sk"
   },
   {
     "type": "TEXT",
@@ -199,6 +192,7 @@ const createArgumentsQueue = require('createArgumentsQueue');
 const setInWindow = require('setInWindow');
 const injectScript = require('injectScript');
 const getType = require('getType');
+const makeString = require('makeString');
 
 
 
@@ -216,7 +210,7 @@ if (data.code_type === 'thank_you') {
     log(' - authenticate', data.id);
     
     if (data.order_id) {
-      heureka('set_order_id', data.order_id);
+      heureka('set_order_id', makeString(data.order_id));
       log(' - set_order_id', data.order_id);
     }
 	  
@@ -226,16 +220,16 @@ if (data.code_type === 'thank_you') {
       products = [];
     }
     for (let i = 0; i < products.length; i++) {
-      let id = (products[i].id || products[i].item_id || '').toString();
-      let name = (products[i].name || products[i].item_name || '').toString();
-      let price = (products[i].price || '').toString();
-      let quantity = (products[i].quantity || '').toString();
+      let id = makeString(products[i].id || products[i].item_id || '');
+      let name = makeString(products[i].name || products[i].item_name || '');
+      let price = makeString(products[i].pocketPrice || products[i].price || '0');
+      let quantity = makeString(products[i].quantity || '1');
       heureka('add_product', id, name, price, quantity);
       log(' - add_product', id, name, price, quantity);
     }
 	  
     if (data.order_revenue) {
-      heureka('set_total_vat', data.order_revenue);
+      heureka('set_total_vat', makeString(data.order_revenue));
       log(' - set_total_vat', data.order_revenue);
     }
     if (data.currency_code) {
@@ -304,6 +298,10 @@ ___WEB_PERMISSIONS___
               {
                 "type": 1,
                 "string": "https://www.heureka.sk/ocm/sdk.js*"
+              },
+              {
+                "type": 1,
+                "string": "https://www.arukereso.hu/ocm/sdk.js*"
               }
             ]
           }

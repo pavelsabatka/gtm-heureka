@@ -4,5 +4,9 @@
 
 # Verze
 
+## 13. 11. 2024
+* Přidání podpory pro Maďarsko - arukereso.hu
+* Drobné úpravy - přetypování na string
+
 ## 2. 11. 2024
 Kompletní předělání šablony pro novou verzi konverzního kódu.
