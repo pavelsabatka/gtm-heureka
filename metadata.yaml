@@ -2,7 +2,7 @@ homepage: "https://www.sabatka.net"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: x
+  - sha: 6cf6a2a8a2b1c38e187f45c060e7221405db81de
     changeNotes: added error messages, total revenue is calculate from product values
     
   # Older versions
