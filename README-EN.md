@@ -24,10 +24,9 @@ To set it up, just set the country and code type as "Item detail".
 ## Conversion code
 In the template you need to set
 * **Key** - the key to measure the eshop. You can get it in Heureka administration.
-* **Order Id** (optional) - unique ID of the given order
-* **Order Revenue** (optional) - unique ID of the given order
-* **Currency** (optional) - three-digit currency code according to ISO 4217. E.g. CZK, EUR, USD
-* **Products** (optional) - product field (object). Each product is expected to have the attributes `id` (or `item_id`), `name` (or `item_name`), `price` and `quantity`.
+* **Order Id** (required) - unique ID of the given order
+* **Currency** (required) - three-digit currency code according to ISO 4217. E.g. CZK, EUR, USD
+* **Products** (required) - product field (object). Each product is expected to have the attributes `id` (or `item_id`), `name` (or `item_name`), `price` and `quantity`.
 
 ![Configuring GTM templates for Heureka purchase code](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase.png)
 

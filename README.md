@@ -23,10 +23,9 @@ Pro nastavení stačí pouze nastavit zemi a typ kódu jako "Item detail".
 ## Konverzní kód
 V šabloně je třeba nastavit
 * **Key** - klíč pro měření eshopu. Získáte ho v administraci Heureka.
-* **Order Id** (volitelně) - unikátní ID dané objednávky
-* **Order Revenue** (volitelně) - unikátní ID dané objednávky
-* **Currency** (volitelně) - třímístný kód měny podle ISO 4217. Např. CZK, EUR, USD
-* **Products** (volitelně) - pole produktů (objekt). Očekává se, že každý produkt bude mít atributy `id` (nebo `item_id`), `name` (nebo `item_name`), `price` a `quantity`.
+* **Order Id** (povinné) - unikátní ID dané objednávky
+* **Currency** (povinné) - třímístný kód měny podle ISO 4217. Např. CZK, EUR, USD
+* **Products** (povinné) - pole produktů (objekt). Očekává se, že každý produkt bude mít atributy `id` (nebo `item_id`), `name` (nebo `item_name`), `price` a `quantity`.
 
 ![Konfigurace GTM šablony pro Heureka konverzní kód](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase.png)
 

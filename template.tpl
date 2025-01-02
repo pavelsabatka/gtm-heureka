@@ -14,7 +14,7 @@ ___INFO___
     "ANALYTICS",
     "ADVERTISING"
   ],
-  "description": "Conversion code for Heureka CZ, SK and Arukereso.hu\nhttps://sluzby.heureka.cz/napoveda/mereni-konverzi/",
+  "description": "Conversion code for Heureka CZ or SK\nhttps://sluzby.heureka.cz/napoveda/mereni-konverzi/",
   "securityGroups": [],
   "id": "cvt_temp_public_id",
   "type": "TAG",
@@ -33,31 +33,6 @@ ___INFO___
 ___TEMPLATE_PARAMETERS___
 
 [
-  {
-    "type": "SELECT",
-    "name": "country",
-    "displayName": "Heureka Account Country",
-    "macrosInSelect": false,
-    "selectItems": [
-      {
-        "value": "cz",
-        "displayValue": "heureka.cz"
-      },
-      {
-        "value": "sk",
-        "displayValue": "heureka.sk"
-      },
-      {
-        "value": "hu",
-        "displayValue": "arukereso.hu"
-      }
-    ],
-    "simpleValueType": true,
-    "defaultValue": "cz",
-    "alwaysInSummary": true,
-    "help": "Country where you perform your campaigns - CZ, SK or HU",
-    "clearOnCopy": false
-  },
   {
     "type": "SELECT",
     "name": "code_type",
@@ -81,6 +56,34 @@ ___TEMPLATE_PARAMETERS___
         "type": "NON_EMPTY"
       }
     ]
+  },
+  {
+    "type": "SELECT",
+    "name": "country",
+    "displayName": "Heureka Account Country",
+    "macrosInSelect": true,
+    "selectItems": [
+      {
+        "value": "cz",
+        "displayValue": "cz"
+      },
+      {
+        "value": "sk",
+        "displayValue": "sk"
+      }
+    ],
+    "simpleValueType": true,
+    "valueValidators": [
+      {
+        "type": "REGEX",
+        "args": [
+          "^(cz|sk)$"
+        ]
+      }
+    ],
+    "defaultValue": "cz",
+    "alwaysInSummary": true,
+    "help": "Country code, expected values are cz or sk"
   },
   {
     "type": "TEXT",
@@ -193,14 +196,33 @@ const setInWindow = require('setInWindow');
 const injectScript = require('injectScript');
 const getType = require('getType');
 const makeString = require('makeString');
-
-
+const makeNumber = require('makeNumber');
+const Math = require('Math');
 
 
 let add_data = () => {};
-let domain = 'heureka';
-if (data.country == 'hu') domain = 'arukereso';
-const url = 'https://www.'+domain+'.'+data.country+'/ocm/sdk.js?version=2&page='+data.code_type;
+let url = 'https://www.heureka.'+data.country+'/ocm/sdk.js?version=2&page='+data.code_type;
+
+
+log('Heureka '+data.code_type+': starting code with', data);
+
+
+function round(value) {
+  return Math.round(makeNumber(value) * 100) / 100;
+}
+
+
+function floatToString(value) {
+  value = round(value);
+  let parts = makeString(value).split(".");
+  if (!parts[1]) {
+    parts[1] = "00";
+  } else if (parts[1].length === 1) {
+    parts[1] += "0";
+  }
+  return parts.join(".");
+}
+
 
 
 if (data.code_type === 'thank_you') {
@@ -208,6 +230,7 @@ if (data.code_type === 'thank_you') {
     log('Heureka '+data.code_type+': adding data');
 	heureka('authenticate', data.id);
     log(' - authenticate', data.id);
+    let totalRevenue = 0;
     
     if (data.order_id) {
       heureka('set_order_id', makeString(data.order_id));
@@ -219,23 +242,59 @@ if (data.code_type === 'thank_you') {
       log("Heureka Conversion: passing non-array value", products);
       products = [];
     }
+    
+    if (products.length < 0) {
+      const createQueue = require('createQueue');
+      const dataLayerPush = createQueue('dataLayer');
+      const JSON = createQueue('JSON');
+      dataLayerPush({
+        'event': 'error',
+        'error': {
+          'message': 'Heureka Template',
+          'description': 'No products'+JSON.stringify(data.products)
+        }
+      });
+    }
+    
+    
     for (let i = 0; i < products.length; i++) {
       let id = makeString(products[i].id || products[i].item_id || '');
       let name = makeString(products[i].name || products[i].item_name || '');
-      let price = makeString(products[i].pocketPrice || products[i].price || '0');
-      let quantity = makeString(products[i].quantity || '1');
-      heureka('add_product', id, name, price, quantity);
-      log(' - add_product', id, name, price, quantity);
+      let price = products[i].pocketPrice || products[i].price || 0;
+      price = round(price);
+      let quantity = products[i].quantity || 1;
+      totalRevenue += price * quantity;
+      
+      if (price == 0 || quantity == 0) {
+        continue;
+      }
+      if (id === '') {
+        log('Heureka Error: MISSING_ITEM_ID, item '+name+' has invalid price', id);
+      }
+      if (price < 0) {
+        log('Heureka Error: INVALID_ITEM_PRICE, item '+name+' has invalid price', price);
+      }
+      if (quantity < 0) {
+        log('Heureka Error: INVALID_ITEM_QUANTITY, item '+name+' has invalid quantity', quantity);
+      }
+      
+      heureka('add_product', id, name, floatToString(price), makeString(quantity));
+      log(' - add_product', id, name, floatToString(price), quantity);
     }
-	  
-    if (data.order_revenue) {
-      heureka('set_total_vat', makeString(data.order_revenue));
-      log(' - set_total_vat', data.order_revenue);
-    }
-    if (data.currency_code) {
+    
+    totalRevenue = floatToString(totalRevenue);
+    heureka('set_total_vat', totalRevenue);
+    log(' - set_total_vat', totalRevenue);
+
+    if (!data.currency_code) {
+        log('Heureka Error: MISSING_CURRENCY, get currency code', data.currency_code);
+    } else if (data.currency_code.length !== 3) {
+      log('Heureka Error: INVALID_CURRENCY, get currency code', data.currency_code);
+    } else {
       heureka('set_currency', data.currency_code);
       log(' - set_currency', data.currency_code);
     }
+    
     heureka('send', 'Order');
     log(' - send order');
   };
@@ -245,6 +304,7 @@ if (data.code_type === 'thank_you') {
 setInWindow('ROIDataObject', 'heureka', true);
 const heureka = createArgumentsQueue('heureka', 'heureka.q');
 setInWindow('heureka.c', data.country, true);
+
 injectScript(url, () => {
   add_data();
   log('Heureka '+data.code_type+': success', data);
@@ -269,7 +329,7 @@ ___WEB_PERMISSIONS___
           "key": "environments",
           "value": {
             "type": 1,
-            "string": "debug"
+            "string": "all"
           }
         }
       ]
@@ -298,10 +358,6 @@ ___WEB_PERMISSIONS___
               {
                 "type": 1,
                 "string": "https://www.heureka.sk/ocm/sdk.js*"
-              },
-              {
-                "type": 1,
-                "string": "https://www.arukereso.hu/ocm/sdk.js*"
               }
             ]
           }
@@ -523,11 +579,22 @@ scenarios:
     \  \n  return function(command) {\n    passedData[i] = arguments;\n    i++;\n\
     \  };\n});\n\nrunCode(mockData);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
     \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
-    \ 12345]);\nassertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka',\
-    \ '21', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '456', 'Brambora',\
-    \ '3.5', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat', 99.9]);\n\
-    assertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\nassertThat(passedData[6]).isEqualTo(['send',\
-    \ 'Order']);"
+    \ '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka',\
+    \ '21.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '456',\
+    \ 'Brambora', '3.50', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
+    \ '38.50']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);"
+- name: Product page
+  code: "let passedData = [];\nmockData.products[0].price = 21.0012345;\nlet i = 0;\n\
+    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
+    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
+    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\nrunCode(mockData);\n\n\
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
+    \ '123', 'Okurka', '21.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
+    \ '456', 'Brambora', '3.50', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
+    \ '38.50']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);"
 - name: SK version
   code: |-
     expected_url = 'https://www.heureka.sk/ocm/sdk.js?version=2&page=thank_you';
@@ -535,13 +602,6 @@ scenarios:
     // Call runCode to run the template's code.
     runCode(mockData);
     assertApi('setInWindow').wasCalledWith('heureka.c', 'sk', true);
-- name: HU version
-  code: |-
-    expected_url = 'https://www.arukereso.hu/ocm/sdk.js?version=2&page=thank_you';
-    mockData.country = 'hu';
-    // Call runCode to run the template's code.
-    runCode(mockData);
-    assertApi('setInWindow').wasCalledWith('heureka.c', 'hu', true);
 setup: |-
   let mockData = {
     'id': 'ABCDEFGH12345NOPQRS1111123456789',
