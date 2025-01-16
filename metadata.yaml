@@ -2,7 +2,7 @@ homepage: "https://www.sabatka.net"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: XXXXXX
+  - sha: 91ecad43964450e6e4f536875d5b69b5798f047e
     changeNotes: request is not sent when order.id is not set, minor fixes, added debug outputs
     
   # Older versions
