@@ -2,10 +2,13 @@ homepage: "https://www.sabatka.net"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
+  - sha: XXXXXX
+    changeNotes: request is not sent when order.id is not set, minor fixes, added debug outputs
+    
+  # Older versions
   - sha: 6cf6a2a8a2b1c38e187f45c060e7221405db81de
     changeNotes: added error messages, total revenue is calculate from product values
     
-  # Older versions
   - sha: 02dbea817138ee16c9adcd69e12f8c4148386fe7
     changeNotes: Support of new version of the script
 

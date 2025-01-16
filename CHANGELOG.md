@@ -4,6 +4,13 @@
 
 # Verze
 
+## 16. 1. 2025
+
+* Requesty nejsou odesílány pokud není zadáno ID konverze. To dělalo problémy při publikování GTM.
+* Jako cena objednávky je posílán součet hodnot produktů
+* Je-li produkt v objednávce opakovaně, je poslán jako jedna položka (quantity je součet, price jako vážený průměr)
+
+
 ## 2. 1. 2025
 Drobné úpravy - přidání logování chyb, celková cena objednávky je počítána z cen produktů
 
