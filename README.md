@@ -32,3 +32,12 @@ V šabloně je třeba nastavit
 ## Souhlas
 Šablona nekontruluje stav souhlasu.
 Heureka [v dokumentaci](https://sluzby.heureka.cz/napoveda/mereni-konverzi/) uvádí, že by kódy měly být spouštěny bez souhlasu - řídí se souhlasem uděleným na webu Heureka. Toto řešení ale konzultujte s Vašimi právníky, za jeho správnost nejsem zodpovědný.
+
+# Ostatní
+
+## Zřeknutí se zodpovědnosti
+Šablonu vyvíjím ve svém volném čase, aby Vám ušetřila čas a práci. Za její využití či případné škody vzniklé jejím používáním nejsem zodpovědný.
+Šablona stahuje skripty třetí strany (Heureka.cz), a to dle dokumentace, kterou Heureka zveřejňuje. Za případné nedostatky z hlediska GDPR nejsem zodpovědný.
+
+## Konzultace
+Máte-li problémy s nasazením šablony, [můžete se na mne obrátit](https://www.sabatka.net/kontakt) v rámci placené konzultace.
