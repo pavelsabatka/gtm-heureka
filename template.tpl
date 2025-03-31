@@ -282,7 +282,6 @@ if (data.code_type === 'thank_you') {
         log('Heureka Error: INVALID_ITEM_QUANTITY, item '+name+' has invalid quantity', quantity);
       }
       
-
       if (id !== '' && Object.keys(preparedProducts).indexOf(id) > -1) {
         preparedProducts[id].price = (preparedProducts[id].price * preparedProducts[id].quantity + price * quantity) / (preparedProducts[id].quantity + quantity);
         preparedProducts[id].quantity += quantity;
@@ -297,10 +296,17 @@ if (data.code_type === 'thank_you') {
     }
 
     preparedProducts = Object.values(preparedProducts);
+
     for (let i = 0; i < preparedProducts.length; i++) {
       totalRevenue += preparedProducts[i].price * preparedProducts[i].quantity;
-      heureka('add_product', preparedProducts[i].id, preparedProducts[i].name, floatToString(preparedProducts[i].price), makeString(preparedProducts[i].quantity));
-      log(' - add_product', id, name, floatToString(price), quantity);
+      
+      id = preparedProducts[i].id;
+      name = preparedProducts[i].name;
+      price = floatToString(preparedProducts[i].price);
+      quantity = makeString(preparedProducts[i].quantity);
+      
+      heureka('add_product', id, name, price, quantity);
+      log(' - add_product', id, name, price, quantity);
     }
 
     totalRevenue = floatToString(totalRevenue);
@@ -719,6 +725,25 @@ scenarios:
     assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
     \ '', 'Okurka', '30.00', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
     \ '', 'Okurka', '20.00', '2']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
+    \ '130.00']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);\n"
+- name: Multiple products
+  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
+    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
+    \ 'CZK',\n  'products': [{\n      id: 12345,\n      ean: \"\",\n      name: \"\
+    Okurka\",\n      price: \"30.00\",\n      fullPrice: \"30.00\",\n      quantity:\
+    \ 3,\n      priceFull: \"30.00\",\n      pocketPrice: \"30.00\",\n      discount:\
+    \ \"0.00\"\n    }, {\n      id: 67890,\n      ean: \"\",\n      name: \"Banán\"\
+    ,\n      price: \"20.00\",\n      fullPrice: \"20.00\",\n      quantity: 2,\n\
+    \      priceFull: \"20.00\",\n      pocketPrice: \"20.00\",\n      discount: \"\
+    10.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData = [];\nlet i = 0;\n\
+    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
+    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
+    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\n\nrunCode(mockData);\n\
+    \n\nassertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
+    \ '12345', 'Okurka', '30.00', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
+    \ '67890', 'Banán', '20.00', '2']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
     \ '130.00']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
     assertThat(passedData[6]).isEqualTo(['send', 'Order']);\n"
 setup: |-
