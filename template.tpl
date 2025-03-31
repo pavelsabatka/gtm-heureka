@@ -175,7 +175,7 @@ ___TEMPLATE_PARAMETERS___
     "macrosInSelect": true,
     "selectItems": [],
     "simpleValueType": true,
-    "help": "Array of products. Each product object needs keys \"name\", \"quantity\", \"price\"",
+    "help": "Array of products. Each product object needs keys \"id\", \"name\", \"quantity\", \"price\"",
     "notSetText": "Not Set",
     "enablingConditions": [
       {
