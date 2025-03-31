@@ -33,3 +33,12 @@ In the template you need to set
 ## Consent
 The template does not handle consent status.
 Heureka states [in the documentation](https://sluzby.heureka.cz/napoveda/mereni-konverzi/) that codes should be run without consent - it follows the consent granted on the Heureka site. However, consult your lawyers for this solution, I am not responsible for its correctness.
+
+# Other
+
+## Disclaimers
+I develop the template in my spare time to save you time and work. I am not responsible for its use or any damage caused by its use.
+The template downloads scripts from a third party (Heureka.cz), according to the documentation published by Heureka.cz. I am not responsible for any shortcomings in terms of GDPR.
+
+## Consultation
+If you have problems with deploying the template, you can [contact me](https://www.sabatka.net/kontakt) for a paid consultation.
