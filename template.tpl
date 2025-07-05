@@ -109,6 +109,24 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "SELECT",
+    "name": "order",
+    "displayName": "Transaction (object in GA4 format)",
+    "macrosInSelect": true,
+    "selectItems": [],
+    "simpleValueType": true,
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ],
+    "help": "Object of Transaction in GA4 format. If submitted, ID, currency and products will be loaded automatically.",
+    "notSetText": "Not set",
+    "alwaysInSummary": true
+  },
+  {
+    "type": "SELECT",
     "name": "order_id",
     "displayName": "Order ID",
     "macrosInSelect": true,
@@ -116,7 +134,7 @@ ___TEMPLATE_PARAMETERS___
     "simpleValueType": true,
     "alwaysInSummary": false,
     "notSetText": "Not Set",
-    "help": "Unique ID of given order",
+    "help": "Unique ID of given order. If Transaction object is set, value is loaded automatically.",
     "enablingConditions": [
       {
         "paramName": "code_type",
@@ -148,9 +166,6 @@ ___TEMPLATE_PARAMETERS___
     "simpleValueType": true,
     "valueValidators": [
       {
-        "type": "NON_EMPTY"
-      },
-      {
         "type": "STRING_LENGTH",
         "args": [
           3,
@@ -158,7 +173,7 @@ ___TEMPLATE_PARAMETERS___
         ]
       }
     ],
-    "help": "Currency code like CZK, EUR or USD",
+    "help": "Currency code like CZK, EUR or USD. If Transaction object is set, value is loaded automatically.",
     "enablingConditions": [
       {
         "paramName": "code_type",
@@ -175,7 +190,7 @@ ___TEMPLATE_PARAMETERS___
     "macrosInSelect": true,
     "selectItems": [],
     "simpleValueType": true,
-    "help": "Array of products. Each product object needs keys \"id\", \"name\", \"quantity\", \"price\"",
+    "help": "Array of products. Each product object needs keys \"name\", \"quantity\", \"price\".  If Transaction object is set, value is loaded automatically from transaction.items.",
     "notSetText": "Not Set",
     "enablingConditions": [
       {
@@ -184,6 +199,68 @@ ___TEMPLATE_PARAMETERS___
         "type": "EQUALS"
       }
     ]
+  },
+  {
+    "type": "SIMPLE_TABLE",
+    "name": "additional_items",
+    "displayName": "Additional items",
+    "simpleTableColumns": [
+      {
+        "defaultValue": "",
+        "displayName": "Name",
+        "name": "name",
+        "type": "TEXT",
+        "isUnique": true,
+        "valueValidators": [
+          {
+            "type": "NON_EMPTY"
+          }
+        ],
+        "valueHint": "Item Name"
+      },
+      {
+        "defaultValue": "",
+        "displayName": "Unit Price",
+        "name": "unit_price",
+        "type": "TEXT",
+        "valueHint": "0.00"
+      },
+      {
+        "defaultValue": 1,
+        "displayName": "Quantity",
+        "name": "quantity",
+        "type": "TEXT",
+        "valueHint": "1",
+        "valueValidators": [
+          {
+            "type": "POSITIVE_NUMBER"
+          }
+        ]
+      }
+    ],
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ],
+    "alwaysInSummary": false
+  },
+  {
+    "type": "CHECKBOX",
+    "name": "load_additional_items_from_object",
+    "checkboxText": "Load additional items from Transaction object",
+    "simpleValueType": true,
+    "defaultValue": true,
+    "enablingConditions": [
+      {
+        "paramName": "code_type",
+        "paramValue": "thank_you",
+        "type": "EQUALS"
+      }
+    ],
+    "help": "If enabled, shipping, payment, tax and voucher will be automatically added as additional items from the transaction object"
   }
 ]
 
@@ -213,7 +290,6 @@ function round(value) {
   return Math.round(makeNumber(value) * 100) / 100;
 }
 
-
 function floatToString(value) {
   value = round(value);
   let parts = makeString(value).split(".");
@@ -225,6 +301,16 @@ function floatToString(value) {
   return parts.join(".");
 }
 
+function addAdditionalItem(additionalItems, name, unit_price) {
+  let price = makeNumber(unit_price);
+  if (!name || makeString(price) === 'NaN') return;
+  additionalItems.push({
+    'name': name,
+    'unit_price': price,
+    'quantity': '1'}
+  );
+}
+
 
 
 if (data.code_type === 'thank_you') {
@@ -233,16 +319,24 @@ if (data.code_type === 'thank_you') {
 	heureka('authenticate', data.id);
     log(' - authenticate', data.id);
     let totalRevenue = 0;
+    let order = data.order || {};
+    let orderProducts = order.products;
+    if (order.actionField) order = order.actionField;
     
-    if (data.order_id) {
-      heureka('set_order_id', makeString(data.order_id));
-      log(' - set_order_id', data.order_id);
+    
+    // ORDER ID
+    let order_id = data.order_id || order.id || order.transaction_id;
+    if (order_id) {
+      heureka('set_order_id', makeString(order_id));
+      log(' - set_order_id', order_id);
     } else {
-      log('Heureka Error: INVALID_ORDER_ID, got value', data.order_id);
+      log('Heureka Error: INVALID_ORDER_ID, got value', order_id);
       return 'INVALID_ORDER_ID';
     }
 	  
-    let products = data.products || [];
+    
+    // PRODUCTS
+    let products = data.products || order.items || orderProducts || [];
     if (getType(products) !== 'array') {
       log("Heureka Conversion: passing non-array value", products);
       products = [];
@@ -282,6 +376,7 @@ if (data.code_type === 'thank_you') {
         log('Heureka Error: INVALID_ITEM_QUANTITY, item '+name+' has invalid quantity', quantity);
       }
       
+
       if (id !== '' && Object.keys(preparedProducts).indexOf(id) > -1) {
         preparedProducts[id].price = (preparedProducts[id].price * preparedProducts[id].quantity + price * quantity) / (preparedProducts[id].quantity + quantity);
         preparedProducts[id].quantity += quantity;
@@ -296,33 +391,52 @@ if (data.code_type === 'thank_you') {
     }
 
     preparedProducts = Object.values(preparedProducts);
-
     for (let i = 0; i < preparedProducts.length; i++) {
-      totalRevenue += preparedProducts[i].price * preparedProducts[i].quantity;
-      
-      id = preparedProducts[i].id;
-      name = preparedProducts[i].name;
-      price = floatToString(preparedProducts[i].price);
-      quantity = makeString(preparedProducts[i].quantity);
-      
-      heureka('add_product', id, name, price, quantity);
-      log(' - add_product', id, name, price, quantity);
+      let item = preparedProducts[i];
+      totalRevenue += item.price * item.quantity;
+      heureka('add_product', item.id, item.name, floatToString(item.price), makeString(item.quantity));
+      log(' - add_product', item.id, item.name, floatToString(item.price), makeString(item.quantity));
     }
 
+    
+    // ADDITIONAL ITEMS
+    let additionalItems = data.additional_items || [];
+    if (data.load_additional_items_from_object) {
+      addAdditionalItem(additionalItems, 'shipping', order.shipping);
+      addAdditionalItem(additionalItems, 'payment', order.payment);
+      addAdditionalItem(additionalItems, 'tax', order.tax);
+      addAdditionalItem(additionalItems, 'voucher', order.voucher);
+    }
+    for (let i = 0; i < additionalItems.length; i++) {
+      let item = additionalItems[i];
+      let quantity = makeNumber(item.quantity) || 1;
+      let price = makeNumber(item.unit_price) || 0;
+      
+      totalRevenue += quantity * price;      
+      heureka('add_additional_item', item.name, floatToString(price), makeString(quantity));
+      log(' - add_additional_item', item.name, floatToString(price), makeString(quantity));
+    }
+
+    
+    // TOTAL REVENUE
     totalRevenue = floatToString(totalRevenue);
     heureka('set_total_vat', totalRevenue);
     log(' - set_total_vat', totalRevenue);
-    if (totalRevenue != floatToString(data.order_revenue)) {
-      log('Heureka Error: PRICE_DONT_MATCH, product price is', totalRevenue, ', order price is', floatToString(data.order_revenue));
+    let revenue = data.order_revenue || order.value || order.revenue || 'unknown';
+    if (totalRevenue != floatToString(revenue)) {
+      log('Heureka Error: PRICE_DONT_MATCH, calculated price is', totalRevenue, ', order price from data is', revenue);
     }
 
-    if (!data.currency_code) {
-        log('Heureka Error: MISSING_CURRENCY, get currency code', data.currency_code);
-    } else if (data.currency_code.length !== 3) {
-      log('Heureka Error: INVALID_CURRENCY, get currency code', data.currency_code);
+    
+    // CURRENCY
+    let currency = data.currency_code || order.currency || '';
+    if (!currency || currency === '') {
+        log('Heureka Error: MISSING_CURRENCY, get currency code', currency);
+    } else if (currency.length !== 3) {
+      log('Heureka Error: INVALID_CURRENCY, get currency code', currency);
     } else {
-      heureka('set_currency', data.currency_code);
-      log(' - set_currency', data.currency_code);
+      heureka('set_currency', currency);
+      log(' - set_currency', currency);
     }
     
     heureka('send', 'Order');
@@ -598,7 +712,7 @@ scenarios:
     runCode(mockData);
     assertApi('setInWindow').wasCalledWith('ROIDataObject', 'heureka', true);
     assertApi('setInWindow').wasCalledWith('heureka.c', 'cz', true);
-- name: Product detail page
+- name: Product page - script is loaded
   code: |-
     expected_url = 'https://www.heureka.cz/ocm/sdk.js?version=2&page=product_detail';
     mockData = {
@@ -608,10 +722,10 @@ scenarios:
     runCode(mockData);
     assertApi('injectScript').wasCalled();
     assertApi('gtmOnSuccess').wasCalled();
-- name: Purchase page
-  code: "let passedData = [];\nlet i = 0;\n\nmock('createArgumentsQueue', function(name,\
-    \ queue) {\n  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
-    \  \n  return function(command) {\n    passedData[i] = arguments;\n    i++;\n\
+- name: Purchase - basic
+  code: "let passedData = [];\nmock('createArgumentsQueue', function(name, queue)\
+    \ {\n  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
+    \  \n  return function(command) {\n    passedData[passedData.length] = arguments;\n\
     \  };\n});\n\nrunCode(mockData);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
     \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
     \ '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka',\
@@ -619,17 +733,409 @@ scenarios:
     \ 'Brambora', '3.50', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
     \ '38.50']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
     assertThat(passedData[6]).isEqualTo(['send', 'Order']);"
-- name: Product page
-  code: "let passedData = [];\nmockData.products[0].price = 21.0012345;\nlet i = 0;\n\
-    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
-    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
-    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\nrunCode(mockData);\n\n\
-    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
-    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
-    \ '123', 'Okurka', '21.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
-    \ '456', 'Brambora', '3.50', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
+- name: Purchase - basic - with additional items
+  code: |-
+    mockData.order_revenue = 87.50;
+    mockData.additional_items = [
+      {"name":"transport","unit_price":"69.00","quantity":"1"},
+      {"name":"voucher","unit_price":"-20","quantity":''},
+      {"name":"error","unit_price":"","quantity":1}
+    ];
+
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+    runCode(mockData);
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka', '21.00', '1']);
+    assertThat(passedData[3]).isEqualTo(['add_product', '456', 'Brambora', '3.50', '5']);
+
+    assertThat(passedData[4]).isEqualTo(['add_additional_item', 'transport', '69.00', '1']);
+    assertThat(passedData[5]).isEqualTo(['add_additional_item', 'voucher', '-20.00', '1']);
+    assertThat(passedData[6]).isEqualTo(['add_additional_item', 'error', '0.00', '1']);
+
+    assertThat(passedData[7]).isEqualTo(['set_total_vat', '87.50']);
+    assertThat(passedData[8]).isEqualTo(['set_currency', 'CZK']);
+    assertThat(passedData[9]).isEqualTo(['send', 'Order']);
+- name: Purchase - from transaction object - GA4
+  code: "let passedData = [];\nmock('createArgumentsQueue', function(name, queue)\
+    \ {\n  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
+    \  \n  return function(command) {\n    passedData[passedData.length] = arguments;\n\
+    \  };\n});\n\nrunCode(mockDataObject);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
+    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
+    \ 'T_12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', 'SKU_12345',\
+    \ 'Stan and Friends Tee', '10.01', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
+    \ 'SKU_12346', 'Google Grey Women\\'s Tee', '21.01', '2']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
+    \ '72.05']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'USD']);\n\
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);"
+- name: Purchase - from transaction object - UA
+  code: |-
+    mockDataObject = {
+      'id': 'ABCDEFGH12345NOPQRS1111123456789',
+      'code_type': 'thank_you',
+      'country': 'cz',
+      'order': {
+        actionField: {
+          transaction_id: "T_12345",
+          value: 72.05,
+          voucher: -3,
+          tax: 3.60,
+          shipping: 5.99,
+          payment: 1.50,
+          currency: "USD",
+          coupon: "SUMMER_SALE"
+        },
+        products: [
+         {
+          item_id: "SKU_12345",
+          item_name: "Stan and Friends Tee",
+          affiliation: "Google Merchandise Store",
+          coupon: "SUMMER_FUN",
+          discount: 2.22,
+          index: 0,
+          item_brand: "Google",
+          item_category: "Apparel",
+          item_category2: "Adult",
+          item_category3: "Shirts",
+          item_category4: "Crew",
+          item_category5: "Short sleeve",
+          item_list_id: "related_products",
+          item_list_name: "Related Products",
+          item_variant: "green",
+          location_id: "ChIJIQBpAG2ahYAR_6128GcTUEo",
+          price: 10.01,
+          quantity: 3
+        },
+        {
+          item_id: "SKU_12346",
+          item_name: "Google Grey Women's Tee",
+          affiliation: "Google Merchandise Store",
+          coupon: "SUMMER_FUN",
+          discount: 3.33,
+          index: 1,
+          item_brand: "Google",
+          item_category: "Apparel",
+          item_category2: "Adult",
+          item_category3: "Shirts",
+          item_category4: "Crew",
+          item_category5: "Short sleeve",
+          item_list_id: "related_products",
+          item_list_name: "Related Products",
+          item_variant: "gray",
+          location_id: "ChIJIQBpAG2ahYAR_6128GcTUEo",
+          price: 21.01,
+          promotion_id: "P_12345",
+          promotion_name: "Summer Sale",
+          quantity: 2
+        }]
+      }
+    };
+
+
+
+
+
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+    runCode(mockDataObject);
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', 'T_12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', 'SKU_12345', 'Stan and Friends Tee', '10.01', '3']);
+    assertThat(passedData[3]).isEqualTo(['add_product', 'SKU_12346', 'Google Grey Women\'s Tee', '21.01', '2']);
+    assertThat(passedData[4]).isEqualTo(['set_total_vat', '72.05']);
+    assertThat(passedData[5]).isEqualTo(['set_currency', 'USD']);
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);
+- name: Purchase - from transaction object - with additional items
+  code: "mockDataObject.load_additional_items_from_object = true;\nmockDataObject.order.value\
+    \ = 80.14;\n\nlet passedData = [];\nmock('createArgumentsQueue', function(name,\
+    \ queue) {\n  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
+    \  \n  return function(command) {\n    passedData[passedData.length] = arguments;\n\
+    \  };\n});\n\nrunCode(mockDataObject);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
+    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
+    \ 'T_12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', 'SKU_12345',\
+    \ 'Stan and Friends Tee', '10.01', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
+    \ 'SKU_12346', 'Google Grey Women\\'s Tee', '21.01', '2']);\n\nassertThat(passedData[4]).isEqualTo(['add_additional_item',\
+    \ 'shipping', '5.99', '1']);\nassertThat(passedData[5]).isEqualTo(['add_additional_item',\
+    \ 'payment', '1.50', '1']);\nassertThat(passedData[6]).isEqualTo(['add_additional_item',\
+    \ 'tax', '3.60', '1']);\nassertThat(passedData[7]).isEqualTo(['add_additional_item',\
+    \ 'voucher', '-3.00', '1']);\n\nassertThat(passedData[8]).isEqualTo(['set_total_vat',\
+    \ '80.14']);\nassertThat(passedData[9]).isEqualTo(['set_currency', 'USD']);\n\
+    assertThat(passedData[10]).isEqualTo(['send', 'Order']);"
+- name: Purchase - from transaction object - with invalid additional items
+  code: |-
+    mockDataObject.load_additional_items_from_object = true;
+    mockDataObject.order.value = 78.64;
+    mockDataObject.order.payment = 'by card';
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+    runCode(mockDataObject);
+
+    assertThat(passedData[4]).isEqualTo(['add_additional_item', 'shipping', '5.99', '1']);
+    assertThat(passedData[5]).isEqualTo(['add_additional_item', 'tax', '3.60', '1']);
+    assertThat(passedData[6]).isEqualTo(['add_additional_item', 'voucher', '-3.00', '1']);
+
+    assertThat(passedData[7]).isEqualTo(['set_total_vat', '78.64']);
+- name: Purchase - from rows - item price is rounded
+  code: "mockData.products[0].price = 21.0012345;\n\n\nlet passedData = [];\nmock('createArgumentsQueue',\
+    \ function(name, queue) {  \n  return function(command) {\n    passedData[passedData.length]\
+    \ = arguments;\n  };\n});\n\n\nrunCode(mockData);\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
+    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
+    \ '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', '123', 'Okurka',\
+    \ '21.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '456',\
+    \ 'Brambora', '3.50', '5']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
     \ '38.50']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
     assertThat(passedData[6]).isEqualTo(['send', 'Order']);"
+- name: Error - Purchase - Products with same ID
+  code: |
+    mockData = {
+      'id': 'ABCDEFGH12345NOPQRS1111123456789',
+      'code_type': 'thank_you',
+      'order_id': 12345,
+      'order_revenue': 130,
+      'currency_code': 'CZK',
+      'products': [{
+          id: 12345,
+          ean: "",
+          name: "Okurka",
+          price: "30.00",
+          fullPrice: "30.00",
+          quantity: 3,
+          priceFull: "30.00",
+          pocketPrice: "30.00",
+          discount: "0.00"
+        }, {
+          id: 12345,
+          ean: "",
+          name: "Okurka",
+          price: "20.00",
+          fullPrice: "20.00",
+          quantity: 2,
+          priceFull: "20.00",
+          pocketPrice: "20.00",
+          discount: "10.00"
+        }
+      ],
+      'country': 'cz'
+    };
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+
+    runCode(mockData);
+
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', '12345', 'Okurka', '26.00', '5']);
+    assertThat(passedData[3]).isEqualTo(['set_total_vat', '130.00']);
+    assertThat(passedData[4]).isEqualTo(['set_currency', 'CZK']);
+    assertThat(passedData[5]).isEqualTo(['send', 'Order']);
+- name: Error - Purchase - Products with empty IDs
+  code: |
+    mockData = {
+      'id': 'ABCDEFGH12345NOPQRS1111123456789',
+      'code_type': 'thank_you',
+      'order_id': 12345,
+      'order_revenue': 130,
+      'currency_code': 'CZK',
+      'products': [{
+          id: false,
+          ean: "",
+          name: "Okurka",
+          price: "30.00",
+          fullPrice: "30.00",
+          quantity: 3,
+          priceFull: "30.00",
+          pocketPrice: "30.00",
+          discount: "0.00"
+        }, {
+          id: '',
+          ean: "",
+          name: "Okurka",
+          price: "20.00",
+          fullPrice: "20.00",
+          quantity: 2,
+          priceFull: "20.00",
+          pocketPrice: "20.00",
+          discount: "10.00"
+        }
+      ],
+      'country': 'cz'
+    };
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+
+    runCode(mockData);
+
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', '', 'Okurka', '30.00', '3']);
+    assertThat(passedData[3]).isEqualTo(['add_product', '', 'Okurka', '20.00', '2']);
+    assertThat(passedData[4]).isEqualTo(['set_total_vat', '130.00']);
+    assertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);
+    assertThat(passedData[6]).isEqualTo(['send', 'Order']);
+- name: Error - Missing order ID
+  code: "/**\n * Do not send order data if order ID is missing\n * \n * This fixes\
+    \ a bug when a lot of errors are sent during a GTM publishing\n */ \nmockData\
+    \ = {\n    'code_type': 'thank_you',\n};\n\nrunCode(mockData);\nassertApi('injectScript').wasNotCalled();\n\
+    assertApi('gtmOnSuccess').wasNotCalled();"
+- name: Error - Order with product price = 0 CZK
+  code: |
+    mockData = {
+      'id': 'ABCDEFGH12345NOPQRS1111123456789',
+      'code_type': 'thank_you',
+      'order_id': 12345,
+      'order_revenue': 1369,
+      'currency_code': 'CZK',
+      'products': [{
+          id: 12345,
+          ean: "",
+          name: "Okurka",
+          price: "1369.00",
+          fullPrice: 1369,
+          quantity: 1,
+          priceFull: "1369.00",
+          pocketPrice: "1369.00",
+          discount: "0.00"
+        }, {
+          id: 23456,
+          ean: "987654329876543",
+          name: "Nabídka",
+          price: 0,
+          fullPrice: 0,
+          quantity: 1,
+          priceFull: "0.00",
+          pocketPrice: "0.00",
+          discount: "0.00"
+        }, {
+          id: 34567,
+          ean: "9876787654876576",
+          name: "Dárek zdarma",
+          price: 0,
+          fullPrice: 0,
+          tax: 0,
+          quantity: 1,
+          priceFull: "0.00",
+          pocketPrice: "0.00",
+          discount: "0.00"
+        }
+      ],
+      'country': 'cz'
+    };
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+
+    runCode(mockData);
+
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', '12345', 'Okurka', '1369.00', '1']);
+    assertThat(passedData[3]).isEqualTo(['add_product', '23456', 'Nabídka', '0.00', '1']);
+    assertThat(passedData[4]).isEqualTo(['add_product', '34567', 'Dárek zdarma', '0.00', '1']);
+    assertThat(passedData[5]).isEqualTo(['set_total_vat', '1369.00']);
+    assertThat(passedData[6]).isEqualTo(['set_currency', 'CZK']);
+    assertThat(passedData[7]).isEqualTo(['send', 'Order']);
+- name: Error - Product with wrongly formated price
+  code: |
+    mockData = {
+      'id': 'ABCDEFGH12345NOPQRS1111123456789',
+      'code_type': 'thank_you',
+      'order_id': 12345,
+      'order_revenue': 1369,
+      'currency_code': 'CZK',
+      'products': [{
+          id: 12345,
+          ean: "",
+          name: "Okurka",
+          price: "1 369.00",
+          fullPrice: "1 369.00",
+          quantity: 1,
+          priceFull: "1 369.00",
+          pocketPrice: "1 369.00",
+          discount: "0.00"
+        }, {
+          id: 23456,
+          ean: "987654329876543",
+          name: "Nabídka",
+          price: 0,
+          fullPrice: 0,
+          quantity: 1,
+          priceFull: "0.00",
+          pocketPrice: "0.00",
+          discount: "0.00"
+        }, {
+          id: 34567,
+          ean: "9876787654876576",
+          name: "Dárek zdarma",
+          price: 0,
+          fullPrice: 0,
+          tax: 0,
+          quantity: 1,
+          priceFull: "0.00",
+          pocketPrice: "0.00",
+          discount: "0.00"
+        }
+      ],
+      'country': 'cz'
+    };
+
+    let passedData = [];
+    mock('createArgumentsQueue', function(name, queue) {
+      return function(command) {
+        passedData[passedData.length] = arguments;
+      };
+    });
+
+
+    runCode(mockData);
+
+
+    assertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);
+    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);
+    assertThat(passedData[2]).isEqualTo(['add_product', '12345', 'Okurka', '1369.00', '1']);
+    assertThat(passedData[3]).isEqualTo(['add_product', '23456', 'Nabídka', '0.00', '1']);
+    assertThat(passedData[4]).isEqualTo(['add_product', '34567', 'Dárek zdarma', '0.00', '1']);
+    assertThat(passedData[5]).isEqualTo(['set_total_vat', '1369.00']);
+    assertThat(passedData[6]).isEqualTo(['set_currency', 'CZK']);
+    assertThat(passedData[7]).isEqualTo(['send', 'Order']);
 - name: SK version
   code: |-
     expected_url = 'https://www.heureka.sk/ocm/sdk.js?version=2&page=thank_you';
@@ -637,121 +1143,12 @@ scenarios:
     // Call runCode to run the template's code.
     runCode(mockData);
     assertApi('setInWindow').wasCalledWith('heureka.c', 'sk', true);
-- name: Missing order ID
-  code: "/**\n * Do not send order data if order ID is missing\n * \n * This fixes\
-    \ a bug when a lot of errors are sent during a GTM publishing\n */ \nmockData\
-    \ = {\n    'code_type': 'thank_you',\n};\n\nrunCode(mockData);\nassertApi('injectScript').wasNotCalled();\n\
-    assertApi('gtmOnSuccess').wasNotCalled();"
-- name: Order with product price = 0 CZK
-  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
-    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
-    \ 'CZK',\n  'products': [{\n      id: 12345,\n      ean: \"\",\n      name: \"\
-    Okurka\",\n      price: \"1369.00\",\n      fullPrice: 1369,\n      quantity:\
-    \ 1,\n      priceFull: \"1369.00\",\n      pocketPrice: \"1369.00\",\n      discount:\
-    \ \"0.00\"\n    }, {\n      id: 23456,\n      ean: \"987654329876543\",\n    \
-    \  name: \"Nabídka\",\n      price: 0,\n      fullPrice: 0,\n      quantity: 1,\n\
-    \      priceFull: \"0.00\",\n      pocketPrice: \"0.00\",\n      discount: \"\
-    0.00\"\n    }, {\n      id: 34567,\n      ean: \"9876787654876576\",\n      name:\
-    \ \"Dárek zdarma\",\n      price: 0,\n      fullPrice: 0,\n      tax: 0,\n   \
-    \   quantity: 1,\n      priceFull: \"0.00\",\n      pocketPrice: \"0.00\",\n \
-    \     discount: \"0.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData\
-    \ = [];\nlet i = 0;\n\nmock('createArgumentsQueue', function(name, queue) {\n\
-    \  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
-    \  \n  return function(command) {\n    passedData[i] = arguments;\n    i++;\n\
-    \  };\n});\n\n\nrunCode(mockData);\n\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
-    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
-    \ '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', '12345', 'Okurka',\
-    \ '1369.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '23456',\
-    \ 'Nabídka', '0.00', '1']);\nassertThat(passedData[4]).isEqualTo(['add_product',\
-    \ '34567', 'Dárek zdarma', '0.00', '1']);\nassertThat(passedData[5]).isEqualTo(['set_total_vat',\
-    \ '1369.00']);\nassertThat(passedData[6]).isEqualTo(['set_currency', 'CZK']);\n\
-    assertThat(passedData[7]).isEqualTo(['send', 'Order']);\n"
-- name: Product with wrongly formated price
-  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
-    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
-    \ 'CZK',\n  'products': [{\n      id: 12345,\n      ean: \"\",\n      name: \"\
-    Okurka\",\n      price: \"1 369.00\",\n      fullPrice: \"1 369.00\",\n      quantity:\
-    \ 1,\n      priceFull: \"1 369.00\",\n      pocketPrice: \"1 369.00\",\n     \
-    \ discount: \"0.00\"\n    }, {\n      id: 23456,\n      ean: \"987654329876543\"\
-    ,\n      name: \"Nabídka\",\n      price: 0,\n      fullPrice: 0,\n      quantity:\
-    \ 1,\n      priceFull: \"0.00\",\n      pocketPrice: \"0.00\",\n      discount:\
-    \ \"0.00\"\n    }, {\n      id: 34567,\n      ean: \"9876787654876576\",\n   \
-    \   name: \"Dárek zdarma\",\n      price: 0,\n      fullPrice: 0,\n      tax:\
-    \ 0,\n      quantity: 1,\n      priceFull: \"0.00\",\n      pocketPrice: \"0.00\"\
-    ,\n      discount: \"0.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData\
-    \ = [];\nlet i = 0;\n\nmock('createArgumentsQueue', function(name, queue) {\n\
-    \  assertThat(name).isEqualTo('heureka');\n  assertThat(queue).isEqualTo('heureka.q');\n\
-    \  \n  return function(command) {\n    passedData[i] = arguments;\n    i++;\n\
-    \  };\n});\n\n\nrunCode(mockData);\n\n\nassertThat(passedData[0]).isEqualTo(['authenticate',\
-    \ 'ABCDEFGH12345NOPQRS1111123456789']);\nassertThat(passedData[1]).isEqualTo(['set_order_id',\
-    \ '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product', '12345', 'Okurka',\
-    \ '1369.00', '1']);\nassertThat(passedData[3]).isEqualTo(['add_product', '23456',\
-    \ 'Nabídka', '0.00', '1']);\nassertThat(passedData[4]).isEqualTo(['add_product',\
-    \ '34567', 'Dárek zdarma', '0.00', '1']);\nassertThat(passedData[5]).isEqualTo(['set_total_vat',\
-    \ '1369.00']);\nassertThat(passedData[6]).isEqualTo(['set_currency', 'CZK']);\n\
-    assertThat(passedData[7]).isEqualTo(['send', 'Order']);\n"
-- name: Products with same ID
-  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
-    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
-    \ 'CZK',\n  'products': [{\n      id: 12345,\n      ean: \"\",\n      name: \"\
-    Okurka\",\n      price: \"30.00\",\n      fullPrice: \"30.00\",\n      quantity:\
-    \ 3,\n      priceFull: \"30.00\",\n      pocketPrice: \"30.00\",\n      discount:\
-    \ \"0.00\"\n    }, {\n      id: 12345,\n      ean: \"\",\n      name: \"Okurka\"\
-    ,\n      price: \"20.00\",\n      fullPrice: \"20.00\",\n      quantity: 2,\n\
-    \      priceFull: \"20.00\",\n      pocketPrice: \"20.00\",\n      discount: \"\
-    10.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData = [];\nlet i = 0;\n\
-    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
-    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
-    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\n\nrunCode(mockData);\n\
-    \n\nassertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
-    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
-    \ '12345', 'Okurka', '26.00', '5']);\nassertThat(passedData[3]).isEqualTo(['set_total_vat',\
-    \ '130.00']);\nassertThat(passedData[4]).isEqualTo(['set_currency', 'CZK']);\n\
-    assertThat(passedData[5]).isEqualTo(['send', 'Order']);\n"
-- name: Products with empty IDs
-  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
-    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
-    \ 'CZK',\n  'products': [{\n      id: false,\n      ean: \"\",\n      name: \"\
-    Okurka\",\n      price: \"30.00\",\n      fullPrice: \"30.00\",\n      quantity:\
-    \ 3,\n      priceFull: \"30.00\",\n      pocketPrice: \"30.00\",\n      discount:\
-    \ \"0.00\"\n    }, {\n      id: '',\n      ean: \"\",\n      name: \"Okurka\"\
-    ,\n      price: \"20.00\",\n      fullPrice: \"20.00\",\n      quantity: 2,\n\
-    \      priceFull: \"20.00\",\n      pocketPrice: \"20.00\",\n      discount: \"\
-    10.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData = [];\nlet i = 0;\n\
-    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
-    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
-    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\n\nrunCode(mockData);\n\
-    \n\nassertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
-    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
-    \ '', 'Okurka', '30.00', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
-    \ '', 'Okurka', '20.00', '2']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
-    \ '130.00']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
-    assertThat(passedData[6]).isEqualTo(['send', 'Order']);\n"
-- name: Multiple products
-  code: "mockData = {\n  'id': 'ABCDEFGH12345NOPQRS1111123456789',\n  'code_type':\
-    \ 'thank_you',\n  'order_id': 12345,\n  'order_revenue': 1369,\n  'currency_code':\
-    \ 'CZK',\n  'products': [{\n      id: 12345,\n      ean: \"\",\n      name: \"\
-    Okurka\",\n      price: \"30.00\",\n      fullPrice: \"30.00\",\n      quantity:\
-    \ 3,\n      priceFull: \"30.00\",\n      pocketPrice: \"30.00\",\n      discount:\
-    \ \"0.00\"\n    }, {\n      id: 67890,\n      ean: \"\",\n      name: \"Banán\"\
-    ,\n      price: \"20.00\",\n      fullPrice: \"20.00\",\n      quantity: 2,\n\
-    \      priceFull: \"20.00\",\n      pocketPrice: \"20.00\",\n      discount: \"\
-    10.00\"\n    }\n  ],\n  'country': 'cz'\n};\n\nlet passedData = [];\nlet i = 0;\n\
-    \nmock('createArgumentsQueue', function(name, queue) {\n  assertThat(name).isEqualTo('heureka');\n\
-    \  assertThat(queue).isEqualTo('heureka.q');\n  \n  return function(command) {\n\
-    \    passedData[i] = arguments;\n    i++;\n  };\n});\n\n\nrunCode(mockData);\n\
-    \n\nassertThat(passedData[0]).isEqualTo(['authenticate', 'ABCDEFGH12345NOPQRS1111123456789']);\n\
-    assertThat(passedData[1]).isEqualTo(['set_order_id', '12345']);\nassertThat(passedData[2]).isEqualTo(['add_product',\
-    \ '12345', 'Okurka', '30.00', '3']);\nassertThat(passedData[3]).isEqualTo(['add_product',\
-    \ '67890', 'Banán', '20.00', '2']);\nassertThat(passedData[4]).isEqualTo(['set_total_vat',\
-    \ '130.00']);\nassertThat(passedData[5]).isEqualTo(['set_currency', 'CZK']);\n\
-    assertThat(passedData[6]).isEqualTo(['send', 'Order']);\n"
 setup: |-
   let mockData = {
     'id': 'ABCDEFGH12345NOPQRS1111123456789',
     'code_type': 'thank_you',
     'order_id': 12345,
-    'order_revenue': 99.90,
+    'order_revenue': 38.50,
     'currency_code': 'CZK',
     'products': [{
       'id': 123,
@@ -766,6 +1163,69 @@ setup: |-
     }],
     'country': 'cz'
   };
+
+  // object from documentation
+  // @see https://developers.google.com/analytics/devguides/collection/ga4/ecommerce?client_type=gtag#make_a_purchase_or_issue_a_refund
+  let mockDataObject = {
+    'id': 'ABCDEFGH12345NOPQRS1111123456789',
+    'code_type': 'thank_you',
+    'country': 'cz',
+    'order': {
+      transaction_id: "T_12345",
+      // Sum of (price * quantity) for all items.
+      value: 72.05,
+      voucher: -3,
+      tax: 3.60,
+      shipping: 5.99,
+      payment: 1.50,
+      currency: "USD",
+      coupon: "SUMMER_SALE",
+      items: [
+       {
+        item_id: "SKU_12345",
+        item_name: "Stan and Friends Tee",
+        affiliation: "Google Merchandise Store",
+        coupon: "SUMMER_FUN",
+        discount: 2.22,
+        index: 0,
+        item_brand: "Google",
+        item_category: "Apparel",
+        item_category2: "Adult",
+        item_category3: "Shirts",
+        item_category4: "Crew",
+        item_category5: "Short sleeve",
+        item_list_id: "related_products",
+        item_list_name: "Related Products",
+        item_variant: "green",
+        location_id: "ChIJIQBpAG2ahYAR_6128GcTUEo",
+        price: 10.01,
+        quantity: 3
+      },
+      {
+        item_id: "SKU_12346",
+        item_name: "Google Grey Women's Tee",
+        affiliation: "Google Merchandise Store",
+        coupon: "SUMMER_FUN",
+        discount: 3.33,
+        index: 1,
+        item_brand: "Google",
+        item_category: "Apparel",
+        item_category2: "Adult",
+        item_category3: "Shirts",
+        item_category4: "Crew",
+        item_category5: "Short sleeve",
+        item_list_id: "related_products",
+        item_list_name: "Related Products",
+        item_variant: "gray",
+        location_id: "ChIJIQBpAG2ahYAR_6128GcTUEo",
+        price: 21.01,
+        promotion_id: "P_12345",
+        promotion_name: "Summer Sale",
+        quantity: 2
+      }]
+    }
+  };
+
 
   let script_load_success = true;
   let expected_url = 'https://www.heureka.cz/ocm/sdk.js?version=2&page=thank_you';

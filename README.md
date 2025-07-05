@@ -23,11 +23,24 @@ Pro nastavení stačí pouze nastavit zemi a typ kódu jako "Item detail".
 ## Konverzní kód
 V šabloně je třeba nastavit
 * **Key** - klíč pro měření eshopu. Získáte ho v administraci Heureka.
-* **Order Id** (povinné) - unikátní ID dané objednávky
-* **Currency** (povinné) - třímístný kód měny podle ISO 4217. Např. CZK, EUR, USD
-* **Products** (povinné) - pole produktů (objekt). Očekává se, že každý produkt bude mít atributy `id` (nebo `item_id`), `name` (nebo `item_name`), `price` a `quantity`.
+* **Order** - objekt [Transakce ve formátu GA4](https://developers.google.com/analytics/devguides/collection/ga4/set-up-ecommerce) (nebo Universal Analytics - `ecommerce.purchase`).
+* **Order Id** - unikátní ID dané objednávky
+* **Currency** - třímístný kód měny podle ISO 4217. Např. CZK, EUR, USD
+* **Products** - pole produktů (objekt). Očekává se, že každý produkt bude mít atributy `id` (nebo `item_id`), `name` (nebo `item_name`), `price` a `quantity`.
+* **Additional Items** (volitelné) - do pole lze zadat další položky, které mají vliv na celkovou cenu objednávky. Např. doprava, platba, vouchery nebo slevy.
 
-![Konfigurace GTM šablony pro Heureka konverzní kód](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase.png)
+Pokud je vložen objekt transakce, načte se z něj aktumaticky co nejvíce dat - ID objednávky, celková cena, produkty, additional items.
+
+### Příklady
+1. Načtení z proměnných
+![Konfigurace GTM šablony pro Heureka konverzní kód](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-rows.png)
+
+2. Využití objektu Transakce
+Data jsou [ve formátu ve formátu purchase pro GA4](https://developers.google.com/analytics/devguides/collection/ga4/set-up-ecommerce)
+![Konfigurace GTM šablony pro Heureka konverzní kód - objekt](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-object.png)
+
+3. Zadání doplňujících nákladů
+![Konfigurace GTM šablony pro Heureka konverzní kód - doplňující náklady](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-additiona-items.png)
 
 ## Souhlas
 Šablona nekontruluje stav souhlasu.

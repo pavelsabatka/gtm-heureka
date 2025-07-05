@@ -4,6 +4,12 @@
 
 # Verze
 
+## 5. 7. 2025
+
+* přidána podpora additional items
+* možnost zadat místo jednotlivých parametrů objekt transakce
+
+
 ## 16. 1. 2025
 
 * Requesty nejsou odesílány pokud není zadáno ID konverze. To dělalo problémy při publikování GTM.

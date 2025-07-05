@@ -23,12 +23,25 @@ To set it up, just set the country and code type as "Item detail".
 
 ## Conversion code
 In the template you need to set
-* **Key** - the key to measure the eshop. You can get it in Heureka administration.
-* **Order Id** (required) - unique ID of the given order
-* **Currency** (required) - three-digit currency code according to ISO 4217. E.g. CZK, EUR, USD
-* **Products** (required) - product field (object). Each product is expected to have the attributes `id` (or `item_id`), `name` (or `item_name`), `price` and `quantity`.
+* **Key** - key for measuring the store. You can get it in Heureka administration.
+* **Order** - object [Transactions in GA4 format](https://developers.google.com/analytics/devguides/collection/ga4/set-up-ecommerce) (or Universal Analytics - `ecommerce.purchase`).
+* **Order Id** - unique ID of the order
+* **Currency** - three-digit currency code according to ISO 4217. E.g. CZK, EUR, USD
+* **Products** - product field (object). Each product is expected to have attributes `id` (or `item_id`), `name` (or `item_name`), `price` and `quantity`.
+* **Additional Items** (optional) - additional items can be entered in the field that affect the total price of the order. For example, shipping, payment, vouchers or discounts.
 
-![Configuring GTM templates for Heureka purchase code](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase.png)
+If a transaction object is inserted, as much data as possible is loaded from it - order ID, total price, products, additional items.
+
+### Examples
+1. Retrieve from variables
+![Configuring GTM templates for Heureka conversion code](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-rows.png)
+
+2. Using the Transaction object
+Data is [in purchase format for GA4](https://developers.google.com/analytics/devguides/collection/ga4/set-up-ecommerce)
+![Configuring GTM template for Heureka conversion code - object](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-object.png)
+
+3. Entering additional costs
+![GTM template configuration for Heureka conversion code - additional costs](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-additiona-items.png)
 
 ## Consent
 The template does not handle consent status.

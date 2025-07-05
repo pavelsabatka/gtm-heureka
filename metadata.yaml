@@ -2,10 +2,13 @@ homepage: "https://www.sabatka.net"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: 97407fe8e76ef900c9fbdee1eda016111e2c0693
-    changeNotes: fix of add_product log
+  - sha: 
+    changeNotes: added support for add_additional_items
     
   # Older versions
+  - sha: 97407fe8e76ef900c9fbdee1eda016111e2c0693
+    changeNotes: fix of add_product log
+  
   - sha: 91ecad43964450e6e4f536875d5b69b5798f047e
     changeNotes: request is not sent when order.id is not set, minor fixes, added debug outputs
   
