@@ -42,6 +42,11 @@ Data jsou [ve formátu ve formátu purchase pro GA4](https://developers.google.c
 3. Zadání doplňujících nákladů
 ![Konfigurace GTM šablony pro Heureka konverzní kód - doplňující náklady](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-additiona-items.png)
 
+### Ladění
+V Debug Módu GTM najděte událost, kde se spouští tag pro měření Heureky. Všechny předané parametry pak můžete zobrazit v konzoli.
+Došlo k odeslání dat Heurece, musí být na konci uveden stav `success`.
+![Ladění GTM šablony pro Heureka](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-debug.png)
+
 ## Souhlas
 Šablona nekontruluje stav souhlasu.
 Heureka [v dokumentaci](https://sluzby.heureka.cz/napoveda/mereni-konverzi/) uvádí, že by kódy měly být spouštěny bez souhlasu - řídí se souhlasem uděleným na webu Heureka. Toto řešení ale konzultujte s Vašimi právníky, za jeho správnost nejsem zodpovědný.

@@ -43,6 +43,13 @@ Data is [in purchase format for GA4](https://developers.google.com/analytics/dev
 3. Entering additional costs
 ![GTM template configuration for Heureka conversion code - additional costs](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-purchase-additiona-items.png)
 
+
+### Debugging
+In the GTM Debug Mode, find the event where the Heureka measurement tag is triggered. You can then view all passed parameters in the console.
+When the data has been sent to Heureka, the `success` status must be given at the end.
+![Debugging GTM template for Heureka](https://github.com/pavelsabatka/gtm-heureka/blob/main/img/heureka-debug.png)
+
+
 ## Consent
 The template does not handle consent status.
 Heureka states [in the documentation](https://sluzby.heureka.cz/napoveda/mereni-konverzi/) that codes should be run without consent - it follows the consent granted on the Heureka site. However, consult your lawyers for this solution, I am not responsible for its correctness.
