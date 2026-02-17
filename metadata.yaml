@@ -2,10 +2,13 @@ homepage: "https://www.sabatka.net"
 documentation: "https://github.com/pavelsabatka/gtm-heureka"
 versions:
   # Latest version
-  - sha: 83704f99392ece3b7cd2ac1dfc5f2ce5fc0d1b73
-    changeNotes: added support for add_additional_items
+  - sha: 4aa7ac1c2fc9e7b4cf5ec54010c842ca5daa31d9
+    changeNotes: updated product price handling
     
   # Older versions
+  - sha: 83704f99392ece3b7cd2ac1dfc5f2ce5fc0d1b73
+    changeNotes: added support for add_additional_items
+
   - sha: 97407fe8e76ef900c9fbdee1eda016111e2c0693
     changeNotes: fix of add_product log
   
